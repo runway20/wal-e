@@ -79,6 +79,7 @@ from wal_e import subprocess
 from wal_e.exception import UserException
 from wal_e.operator import s3_operator
 from wal_e.piper import popen_sp
+from wal_e.worker.s3_worker import uri_to_valid_bucket
 from wal_e.worker.psql_worker import PSQL_BIN, psql_csv_run
 from wal_e.pipeline import LZOP_BIN, PV_BIN, GPG_BIN
 from wal_e.worker.pg_controldata_worker import CONFIG_BIN, PgControlDataParser
@@ -188,6 +189,11 @@ def main(argv=None):
         help='GPG key ID to encrypt to. (Also needed when decrypting.)  '
         'Can also be defined via environment variable '
         'WALE_GPG_KEY_ID')
+
+    parser.add_argument('--validate-bucket',
+                        help='Validate the S3 bucket indicated by the '
+                        'S3 prefix, creating it if it does not exist',
+                        action='store_true')
 
     subparsers = parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
@@ -359,6 +365,11 @@ def main(argv=None):
 
     if gpg_key_id is not None:
         external_program_check([GPG_BIN])
+
+    if args.validate_bucket:
+        uri_to_valid_bucket(aws_access_key_id,
+                            secret_key,
+                            s3_prefix)
 
     try:
         if subcommand == 'backup-fetch':

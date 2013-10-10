@@ -69,15 +69,46 @@ def uri_put_file(aws_access_key_id,
     return k
 
 
-def uri_to_key(aws_access_key_id, aws_secret_access_key, s3_uri):
+def _uri_to_bucket_conn(aws_access_key_id, aws_secret_access_key, s3_uri):
+    """Returns a bucket name and S3 connection given the creds and s3 uri"""
     assert s3_uri.startswith('s3://')
 
     url_tup = urlparse(s3_uri)
     bucket_name = url_tup.netloc
     cinfo = calling_format.from_bucket_name(bucket_name)
-    conn = cinfo.connect(aws_access_key_id, aws_secret_access_key)
+
+    return (bucket_name,
+            url_tup.path,
+            cinfo.connect(aws_access_key_id, aws_secret_access_key))
+
+
+def uri_to_key(aws_access_key_id, aws_secret_access_key, s3_uri):
+    """Returns the S3 key for the given creds and S3 uri"""
+    bucket_name, path, conn = _uri_to_bucket_conn(aws_access_key_id,
+                                                  aws_secret_access_key,
+                                                  s3_uri)
     bucket = boto.s3.bucket.Bucket(connection=conn, name=bucket_name)
-    return boto.s3.key.Key(bucket=bucket, name=url_tup.path)
+
+    return boto.s3.key.Key(bucket=bucket, name=path)
+
+
+def uri_to_valid_bucket(aws_access_key_id, aws_secret_access_key, s3_uri,
+                        create=True):
+    """Returns an existing bucket owned by the credentials for the given s3_uri.
+    Will attempt to create if create=True and the bucket doesn't exist."""
+    bucket_name, _, conn = _uri_to_bucket_conn(aws_access_key_id,
+                                               aws_secret_access_key,
+                                               s3_uri)
+    try:
+        bucket = conn.get_bucket(bucket_name)
+    except boto.exception.S3ResponseError:
+        if create:
+            bucket = conn.create_bucket(bucket_name)
+        else:
+            raise
+
+    return bucket
+
 
 
 def format_kib_per_second(start, finish, amount_in_bytes):
